@@ -1,6 +1,6 @@
 {
 	"name": "socksjs",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"description": "A SOCKS (v5) client library for node.js",
 	"keywords": ["SOCKS", "SOCKS5", "SOCKS client", "client"],
 	"homepage": "https://github.com/M2Ys4U/socksjs",
