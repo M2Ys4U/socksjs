@@ -8,7 +8,7 @@ var stream  = require('stream'),
 var SocksConnection = function (remote_options, socks_options) {
     var that = this;
     stream.Duplex.call(this);
-    
+
     this.remote_options = _.defaults(remote_options, {
         host: 'localhost',
         ssl: false,
@@ -20,16 +20,16 @@ var SocksConnection = function (remote_options, socks_options) {
         user: null,
         pass: null
     });
-    
+
     this.socksAddress = null;
     this.socksPort = null;
-    
+
     this.socksSocket = net.connect({host: socks_options.host, port: socks_options.port}, socksConnected.bind(this, !(!socks_options.user)));
     this.socksSocket.once('data', socksAuth.bind(this, {user: socks_options.user, pass: socks_options.pass}));
     this.socksSocket.on('error', function (err) {
         that.emit('error', err);
     });
-    
+
     this.outSocket = this.socksSocket;
 };
 
@@ -151,14 +151,14 @@ var socksReply = function (data) {
         }
         this.socksAddress = addr;
         this.socksPort = port;
-        
+
         if (this.remote_options.ssl) {
             startTLS.call(this);
         } else {
             proxyData.call(this);
             this.emit('connect');
         }
-        
+
     } else {
         switch (status) {
         case 1:
@@ -198,11 +198,11 @@ var startTLS = function () {
         socket: this.socksSocket,
         rejectUnauthorized: this.remote_options.rejectUnauthorized
     });
-    
+
     plaintext.on('error', function (err) {
         that.emit('error', err);
     });
-    
+
     plaintext.on('secureConnect', function () {
         that.emit('connect');
     });
@@ -212,16 +212,20 @@ var startTLS = function () {
 
 var proxyData = function () {
     var that = this;
-    
+
     this.outSocket.on('data', function (data) {
         var buffer_not_full = that.push(data);
         if (!buffer_not_full) {
             this.pause();
         }
     });
-    
+
     this.outSocket.on('end', function () {
         that.push(null);
+    });
+
+    this.outSocket.on('close', function (had_err) {
+        that.emit('close', had_err);
     });
 };
 
