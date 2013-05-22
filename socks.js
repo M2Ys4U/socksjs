@@ -108,7 +108,7 @@ var socksRequest = function (host, port) {
         } else if (net.isIPv6(host)) {
             type = new Buffer([4]);
         }
-        host = new Buffer(ipaddr.parse(host).toByteArray());
+        hostBuf = new Buffer(ipaddr.parse(host).toByteArray());
     } else {
         type = new Buffer([3]);
         hostBuf = new Buffer(host);
