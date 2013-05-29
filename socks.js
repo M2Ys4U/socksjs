@@ -2,19 +2,18 @@ var stream  = require('stream'),
     util    = require('util'),
     net     = require('net'),
     tls     = require('tls'),
-    _       = require('lodash'),
     ipaddr  = require('ipaddr.js');
 
 var SocksConnection = function (remote_options, socks_options) {
     var that = this;
     stream.Duplex.call(this);
 
-    this.remote_options = _.defaults(remote_options, {
+    this.remote_options = defaults(remote_options, {
         host: 'localhost',
         ssl: false,
         rejectUnauthorized: false
     });
-    socks_options = _.defaults(socks_options, {
+    socks_options = defaults(socks_options, {
         host: 'localhost',
         port: 1080,
         user: null,
@@ -227,6 +226,19 @@ var proxyData = function () {
     this.outSocket.on('close', function (had_err) {
         that.emit('close', had_err);
     });
+};
+
+var defaults = function(obj) {
+    Array.prototype.slice.call(arguments, 1).forEach(function(source) {
+        if (source) {
+            for (var prop in source) {
+                if (obj[prop] === null) {
+                    obj[prop] = source[prop];
+                }
+            }
+        }
+    });
+    return obj;
 };
 
 module.exports = SocksConnection;
