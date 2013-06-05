@@ -20,6 +20,8 @@ var SocksConnection = function (remote_options, socks_options) {
         pass: null
     });
 
+    this._socksSetup = false;
+
     this.socksAddress = null;
     this.socksPort = null;
 
@@ -28,6 +30,8 @@ var SocksConnection = function (remote_options, socks_options) {
     this.socksSocket.on('error', function (err) {
         that.emit('error', err);
     });
+
+    socksAuth.call(this, {user: socks_options.user, pass: socks_options.pass});
 
     this.outSocket = this.socksSocket;
 };
@@ -43,11 +47,24 @@ SocksConnection.connect = function (remote_options, socks_options, connection_li
 };
 
 SocksConnection.prototype._read = function () {
-    this.outSocket.resume();
+    var data;
+    if (this._socksSetup) {
+        while ((data = this.outSocket.read()) !== null) {
+            if ((this.push(data)) === false) {
+                break;
+            }
+        }
+    } else {
+        this.push('');
+    }
 };
 
 SocksConnection.prototype._write = function (chunk, encoding, callback) {
-    this.outSocket.write(chunk, 'utf8', callback);
+    if (this._socksSetup) {
+        this.outSocket.write(chunk, 'utf8', callback);
+    } else {
+        callback("Not connected");
+    }
 };
 
 SocksConnection.prototype.dispose = function () {
@@ -60,6 +77,19 @@ SocksConnection.prototype.dispose = function () {
     this.removeAllListeners();
 };
 
+var getData = function (socket, bytes, callback) {
+    var dataReady = function () {
+        var data = socket.read(bytes);
+        if (data !== null) {
+            socket.removeListener('readable', dataReady);
+            callback(data);
+        } else {
+            socket.on('readable', dataReady);
+        }
+    };
+    dataReady();
+};
+
 var socksConnected = function (auth) {
     if (auth) {
         this.socksSocket.write('\x05\x02\x02\x00'); // SOCKS version 5, supporting two auth methods
@@ -67,36 +97,48 @@ var socksConnected = function (auth) {
     } else {
         this.socksSocket.write('\x05\x01\x00');     // SOCKS version 5, only supporting 'no auth' scheme
     }
+
 };
 
-var socksAuth = function (auth, data) {
-    var bufs = [];
-    switch (data.readUInt8(1)) {
-    case 255:
-        this.emit('error', 'SOCKS: No acceptable authentication methods');
-        this.socksSocket.destroy();
-        break;
-    case 2:
-        bufs[0] = new Buffer([1]);
-        bufs[1] = new Buffer([Buffer.byteLength(auth.user)]);
-        bufs[2] = new Buffer(auth.user);
-        bufs[3] = new Buffer([Buffer.byteLength(auth.pass)]);
-        bufs[4] = new Buffer(auth.pass);
-        this.socksSocket.write(Buffer.concat(bufs));
-        this.socksSocket.once('data', socksAuthStatus.bind(this));
-        break;
-    default:
-        socksRequest.call(this, this.remote_options.host, this.remote_options.port);
-    }
+var socksAuth = function (auth) {
+    var that = this;
+    getData(this.socksSocket, 2, function (data) {
+        if (data.readUInt8(0) !== 5) {
+            that.emit('error', 'Only SOCKS version 5 is supported');
+            that.socksSocket.destroy();
+            return;
+        }
+        switch (data.readUInt8(1)) {
+        case 255:
+            that.emit('error', 'SOCKS: No acceptable authentication methods');
+            that.socksSocket.destroy();
+            return;
+        case 2:
+            that.socksSocket.write(Buffer.concat([
+                new Buffer([1]),
+                new Buffer([Buffer.byteLength(auth.user)]),
+                new Buffer(auth.user),
+                new Buffer([Buffer.byteLength(auth.pass)]),
+                new Buffer(auth.pass)
+            ]));
+            socksAuthStatus.call(that);
+            break;
+        default:
+            socksRequest.call(that, that.remote_options.host, that.remote_options.port);
+        }
+    });
 };
 
 var socksAuthStatus = function (data) {
-    if (data.readUInt8(1) === 1) {
-        socksRequest.call(this, this.remote_options.host, this.remote_options.port);
-    } else {
-        this.emit('error', 'SOCKS: Authentication failed');
-        this.socksSocket.destroy();
-    }
+    var that = this;
+    getData(this.socksSocket, 2, function (data) {
+        if (data.readUInt8(1) === 0) {
+            socksRequest.call(that, that.remote_options.host, that.remote_options.port);
+        } else {
+            that.emit('error', 'SOCKS: Authentication failed');
+            that.socksSocket.destroy();
+        }
+    });
 };
 
 var socksRequest = function (host, port) {
@@ -117,78 +159,102 @@ var socksRequest = function (host, port) {
     portBuf = new Buffer(2);
     portBuf.writeUInt16BE(port, 0);
     this.socksSocket.write(Buffer.concat([header, type, hostBuf, portBuf]));
-    this.socksSocket.once('data', socksReply.bind(this));
+    socksReply.call(this);
 };
 
 var socksReply = function (data) {
-    var err, port, i, addr_len, addr = '';
-    var status = data.readUInt8(1);
-    if (status === 0) {
-        switch (data.readUInt8(3)) {
-        case 1:
-            for (i = 0; i < 4; i++) {
-                if (i !== 0) {
-                    addr += '.';
-                }
-                addr += data.readUInt8(4 + i);
-            }
-            port = data.readUInt16BE(8);
-            break;
-        case 4:
-            for (i = 0; i < 16; i++) {
-                if (i !== 0) {
-                    addr += ':';
-                }
-                addr += data.readUInt8(4 + i);
-            }
-            port = data.readUInt16BE(20);
-            break;
-        case 3:
-            addr_len = data.readUInt8(4);
-            addr = (data.slice(5, 5 + addr_len)).toString();
-            port = data.readUInt16BE(5 + addr_len);
-        }
-        this.socksAddress = addr;
-        this.socksPort = port;
+    var that = this;
+    getData(this.socksSocket, 4, function (data) {
+        var status, err, cont;
 
-        if (this.remote_options.ssl) {
-            startTLS.call(this);
+        cont = function (addr, port) {
+            that.socksAddress = addr;
+            that.socksPort = port;
+
+            if (that.remote_options.ssl) {
+                startTLS.call(that);
+            } else {
+                proxyData.call(that);
+                that.emit('connect');
+            }
+        };
+        status = data.readUInt8(1);
+        if (status === 0) {
+            switch(data.readUInt8(3)) {
+            case 1:
+                getData(that.socksSocket, 6, function (data2) {
+                    var addr = '', port, i;
+                    for (i = 0; i < 4; i++) {
+                        if (i !== 0) {
+                            addr += '.';
+                        }
+                        addr += data2.readUInt8(i).toString();
+                    }
+                    port = data2.readUInt16BE(4);
+                    cont(addr, port);
+                });
+                break;
+            case 3:
+                getData(that.socksSocket, 18, function (data2) {
+                    var length = data2.readUInt8(0);
+                    getData(that.socksSocket, length + 2, function (data3) {
+                        var addr, port;
+                        addr = (data3.slice(0, -2)).toString();
+                        port = data3.readUInt16BE(length);
+                        cont(addr, port);
+                    });
+                });
+                break;
+            case 4:
+                getData(that.socksSocket, 1, function (data2) {
+                    var addr = '', port, i;
+                    for (i = 0; i < 16; i++) {
+                        if (i !== 0) {
+                            addr += ':';
+                        }
+                        addr += data2.readUInt8(i);
+                    }
+                    port = data2.readUInt16BE(16);
+                    cont(addr, port);
+                });
+                break;
+            default:
+                that.emit('error', "Invalid address type");
+                that.socksSocket.destroy();
+                break;
+            }
         } else {
-            proxyData.call(this);
-            this.emit('connect');
+            switch (status) {
+            case 1:
+                err = 'SOCKS: general SOCKS server failure';
+                break;
+            case 2:
+                err = 'SOCKS: Connection not allowed by ruleset';
+                break;
+            case 3:
+                err = 'SOCKS: Network unreachable';
+                break;
+            case 4:
+                err = 'SOCKS: Host unreachable';
+                break;
+            case 5:
+                err = 'SOCKS: Connection refused';
+                break;
+            case 6:
+                err = 'SOCKS: TTL expired';
+                break;
+            case 7:
+                err = 'SOCKS: Command not supported';
+                break;
+            case 8:
+                err = 'SOCKS: Address type not supported';
+                break;
+            default:
+                err = 'SOCKS: Unknown error';
+            }
+            that.emit('error', err);
         }
-
-    } else {
-        switch (status) {
-        case 1:
-            err = 'SOCKS: general SOCKS server failure';
-            break;
-        case 2:
-            err = 'SOCKS: Connection not allowed by ruleset';
-            break;
-        case 3:
-            err = 'SOCKS: Network unreachable';
-            break;
-        case 4:
-            err = 'SOCKS: Host unreachable';
-            break;
-        case 5:
-            err = 'SOCKS: Connection refused';
-            break;
-        case 6:
-            err = 'SOCKS: TTL expired';
-            break;
-        case 7:
-            err = 'SOCKS: Command not supported';
-            break;
-        case 8:
-            err = 'SOCKS: Address type not supported';
-            break;
-        default:
-            err = 'SOCKS: Unknown error';
-        }
-        this.emit('error', err);
-    }
+    });
 };
 
 var startTLS = function () {
@@ -205,6 +271,7 @@ var startTLS = function () {
     plaintext.on('secureConnect', function () {
         that.emit('connect');
     });
+
     this.outSocket = plaintext;
     proxyData.call(this);
 };
@@ -212,10 +279,12 @@ var startTLS = function () {
 var proxyData = function () {
     var that = this;
 
-    this.outSocket.on('data', function (data) {
-        var buffer_not_full = that.push(data);
-        if (!buffer_not_full) {
-            this.pause();
+    this.outSocket.on('readable', function () {
+        var data;
+        while ((data = that.outSocket.read()) !== null) {
+            if ((that.push(data)) === false) {
+                break;
+            }
         }
     });
 
@@ -226,6 +295,8 @@ var proxyData = function () {
     this.outSocket.on('close', function (had_err) {
         that.emit('close', had_err);
     });
+
+    this._socksSetup = true;
 };
 
 var defaults = function(obj) {
