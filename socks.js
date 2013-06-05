@@ -6,6 +6,7 @@ var stream  = require('stream'),
 
 var SocksConnection = function (remote_options, socks_options) {
     var that = this;
+
     stream.Duplex.call(this);
 
     this.remote_options = defaults(remote_options, {
@@ -14,6 +15,8 @@ var SocksConnection = function (remote_options, socks_options) {
         rejectUnauthorized: false
     });
     socks_options = defaults(socks_options, {
+        localAddress: '0.0.0.0',
+        allowHalfOpen: false,
         host: 'localhost',
         port: 1080,
         user: null,
@@ -25,8 +28,13 @@ var SocksConnection = function (remote_options, socks_options) {
     this.socksAddress = null;
     this.socksPort = null;
 
-    this.socksSocket = net.connect({host: socks_options.host, port: socks_options.port}, socksConnected.bind(this, !(!socks_options.user)));
-    this.socksSocket.once('data', socksAuth.bind(this, {user: socks_options.user, pass: socks_options.pass}));
+    this.socksSocket = net.createConnection({
+        host: socks_options.host,
+        port: socks_options.port,
+        localAddress: socks_options.localAddress,
+        allowHalfOpen: socks_options.allowHalfOpen
+    }, socksConnected.bind(this, !(!socks_options.user)));
+
     this.socksSocket.on('error', function (err) {
         that.emit('error', err);
     });

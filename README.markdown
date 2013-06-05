@@ -18,12 +18,14 @@ SocksConnection implements node's Duplex Stream. See the Node documentation for 
 `` var sock = SocksConnection.connect(remote_options, sock_options, connect_handler);``
 
 **remote_options**
-* ``host`` - The hostname or IP to connect to through the SOCKS proxy (optional, default: ``'localhost'``)
 * ``port`` - The port to connect to (mandatory)
+* ``host`` - The hostname or IP to connect to through the SOCKS proxy (optional, default: ``'localhost'``)
 * ``ssl`` - Connect using SSL (optional, default ``false``)
 * ``rejectUnauthorised`` - If ``true``, the server certificate is verified against the list of supplied CAs. An ``'error'`` event is emitted if verification fails (optional, default: ``false``)
 
 **socks_options**
+* ``localAddress`` - The local interface to bind to for the outgoing connections (optional, default: ``0.0.0.0``)
+* ``allowHalfOpen`` -  If ``true``, the socket won't automatically send a FIN packet when the other end of the socket sends a FIN packet. (optional, default: ``false``)
 * ``host`` - The hostname or IP of the SOCKS proxy (optional, default: ``localhost``)
 * ``port`` - The SOCKS proxy's port (optional, default: ``1080``)
 * ``user`` - The username to use to authenticate to the SOCKS proxy (optional, default: ``null``)
