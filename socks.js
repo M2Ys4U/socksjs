@@ -203,7 +203,7 @@ var socksReply = function (data) {
                 });
                 break;
             case 3:
-                getData(that.socksSocket, 18, function (data2) {
+                getData(that.socksSocket, 1, function (data2) {
                     var length = data2.readUInt8(0);
                     getData(that.socksSocket, length + 2, function (data3) {
                         var addr, port;
@@ -214,7 +214,7 @@ var socksReply = function (data) {
                 });
                 break;
             case 4:
-                getData(that.socksSocket, 1, function (data2) {
+                getData(that.socksSocket, 18, function (data2) {
                     var addr = '', port, i;
                     for (i = 0; i < 16; i++) {
                         if (i !== 0) {
