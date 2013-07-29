@@ -11,7 +11,7 @@ A SOCKS (v5) client library for node.js
 
 `` var SocksConnection = require('socksjs');``
 
-SocksConnection implements node's Duplex Stream. See the Node documentation for [Readable](http://nodejs.org/api/stream.html#stream_class_stream_readable) and [Writable](http://nodejs.org/api/stream.html#stream_class_stream_writable) streams to see what methods and events are available in addition to those listed below.
+SocksConnection implements node's Duplex Stream. See the Node documentation for [Stream consumers](http://nodejs.org/api/stream.html#stream_api_for_stream_consumers) to see what methods and events are available in addition to those listed below.
 
 ### Creating a new SocksConnection ###
 `` var sock = new SocksConnection(remote_options, sock_options); ``
