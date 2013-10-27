@@ -8,7 +8,7 @@
 		"url": "https://github.com/M2Ys4U/socksjs/issues"
 	},
 	"license": "MIT",
-	"author": "Jack Allnutt <m2ys4u@gmail.com>",
+	"author": "Jack Allnutt <jack@allnutt.eu>",
 	"main": "socks.js",
 	"repository" : {
 		"type": "git",
