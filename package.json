@@ -1,6 +1,6 @@
 {
 	"name": "socksjs",
-	"version": "0.4.3",
+	"version": "0.4.4",
 	"description": "A SOCKS (v5) client library for node.js",
 	"keywords": ["SOCKS", "SOCKS5", "SOCKS client", "client"],
 	"homepage": "https://github.com/M2Ys4U/socksjs",
@@ -24,6 +24,6 @@
 		"node" : ">=0.10.0"
 	},
 	"dependencies": {
-		"ipaddr.js": "0.1.1"
+		"ipaddr.js": "0.1.2"
 	}
 }
