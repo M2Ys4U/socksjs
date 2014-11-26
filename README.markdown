@@ -22,6 +22,8 @@ SocksConnection implements node's Duplex Stream. See the Node documentation for 
 * ``host`` - The hostname or IP to connect to through the SOCKS proxy (optional, default: ``'localhost'``)
 * ``ssl`` - Connect using SSL (optional, default ``false``)
 * ``rejectUnauthorised`` - If ``true``, the server certificate is verified against the list of supplied CAs. An ``'error'`` event is emitted if verification fails (optional, default: ``false``)
+* ``key:`` - A string or Buffer containing the private key of the client in PEM format.
+* ``cert`` - A string or Buffer containing the certificate key of the client in PEM format.
 
 **socks_options**
 * ``localAddress`` - The local interface to bind to for the outgoing connections (optional, default: ``0.0.0.0``)
@@ -34,6 +36,9 @@ SocksConnection implements node's Duplex Stream. See the Node documentation for 
 **connection_listener**
 
 Function to attach to the 'connect' event of the SocksConnection
+
+### Additional Methods ###
+``getPeerCertificate`` - Returns an object representing the peer's certificate. See the [Node tls documentation](http://nodejs.org/api/tls.html#tls_cleartextstream_getpeercertificate) for more information.
 
 ### Events ###
 #### ``connect`` ####
