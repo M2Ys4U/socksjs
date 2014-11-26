@@ -269,7 +269,10 @@ var startTLS = function () {
     var that = this;
     var plaintext = tls.connect({
         socket: this.socksSocket,
-        rejectUnauthorized: this.remote_options.rejectUnauthorized
+        rejectUnauthorized: this.remote_options.rejectUnauthorized,
+        key: this.remote_options.key,
+        cert: this.remote_options.cert,
+        requestCert: this.remote_options.requestCert
     });
 
     plaintext.on('error', function (err) {
@@ -281,6 +284,8 @@ var startTLS = function () {
     });
 
     this.outSocket = plaintext;
+    this.getPeerCertificate = function(){ return plaintext.getPeerCertificate(); };
+
     proxyData.call(this);
 };
 
